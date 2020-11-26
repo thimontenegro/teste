@@ -9,24 +9,13 @@ from pycaret.regression import load_model
 from pycaret.regression import *
 from pathlib import Path
 from pprint import pformat
-import streamlit.components.v1 as components
 
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-def remote_css(url):
-    st.markdown('<style src="{}"></style>'.format(url), unsafe_allow_html=True)
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
 
-remote_css('<link href="https://fonts.googleapis.com/css2?family=Ubuntu&display=swap" rel="stylesheet">')
-local_css("styles.css")
-
-st.markdown("""
-<h1 style='text-align: center; color: #1088ff'>RankMyPosition</h1>""", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #1088ff;'>RankMyPosition</h1>", unsafe_allow_html=True)
 st.markdown("Esta aplicação tem como objetivo prever a posição da categoria de acordo com a categoria do AIS" +
 "\n com base na entrada dos dados. Vale destacar que este é um MVP e que sugestões e melhorias são válidas!")
-
 st.markdown("---")
 info = st.checkbox("ℹ️ Informações Úteis ")
 dict_check = st.checkbox("📕 Dicionário de Dados")
@@ -268,9 +257,44 @@ with st.beta_container():
     nota = st.sidebar.number_input('Nota média do aplicativo (no dia da observação)')
     nota = float(nota)
     print(nota)
-    desinstalacoes = st.sidebar.number_input("Número de Perdas (desinstalações do dia da observação)", min_value=0.0, max_value=99999999999999.9, format="%1f", step = 1.0)
-    desinstalacoes = int(desinstalacoes)
+    desinstalacoes =0
+    #desinstalacoes = int(desinstalacoes)
 
+st.markdown(
+    """
+<style>
+.reportview-container .markdown-text-container {
+    font-family: "Ubuntu";
+}
+.sidebar .sidebar-content {
+    background-image: linear-gradient(#1088ff,#0bd6d4);
+    color: white;
+    font-family: "Ubuntu";
+}
+.Widget>label {
+    
+    font-family: "Ubuntu";
+}
+[class^="st-b"]  {
+    
+    font-family:"Ubuntu";
+}
+header .decoration {
+    background-image: none;
+}
+strong {
+  color: #1088ff
+}
+h4 {
+  text-align: center;
+}
+#feedback {
+  text-align: center;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 ### Escolha das Categorias
 category_string = "Informe a Categoria do seu App"
@@ -314,11 +338,17 @@ def dealing_with_appear_regressor(df):
   
   columns = ['Ativos', 'ANR', 'Falhas', 'Instalações', 'fiveStars', 'fourStars',
        'threeStars', 'twoStars', 'oneStar', 'total', 'score',
-       'Aquisição de Usuários', 'Nota Média', 'Desinstalações', 'Category_AUTO_AND_VEHICLES', 'Category_BUSINESS',
+       'Aquisição de Usuários', 'Nota Média', 'Category_AUTO_AND_VEHICLES', 'Category_BUSINESS',
        'Category_FINANCE', 'Category_HEALTH_AND_FITNESS', 'Category_LIFESTYLE',
        'Category_SHOPPING', 'Category_SPORTS']
   _df = df[columns]
-  x_file = open(os.path.join("modelos/", "model_appear.pkl"), "rb")
+  total = _df["total"]
+  _df['oneStarProp'] = round(_df['oneStar']/ total, 2)
+  _df['twoStarsProp'] = round(_df['twoStars'] / total, 2)
+  _df['threeStarsProp'] = round(_df['threeStars'] / total, 2)
+  _df['fourStarsProp'] = round(_df['fourStars'] / total, 2)
+  _df['fiveStarsProp'] = round(_df['fiveStars'] / total , 2)
+  x_file = open(os.path.join("modelos/", "model_appear_new.pkl"), "rb")
   regressor = pickle.load(x_file)
   x_file.close()
   predictions = regressor.predict(_df)
@@ -330,7 +360,7 @@ def dealing_with_improve_regressor(df):
        'Aquisição de Usuários', 'Nota Média', 'Desinstalações','Category_EVENTS', 'Category_FINANCE',
        'Category_LIFESTYLE', 'Category_MAPS_AND_NAVIGATION','Category_SHOPPING', 'Category_TRAVEL_AND_LOCAL']
   _df = df[columns]
-  x_file = open(os.path.join("modelos/", "model_improve.pkl"), "rb")
+  x_file = open(os.path.join("modelos/", "model_improve_new.pkl"), "rb")
   regressor = pickle.load(x_file)
   x_file.close()
   predictions = regressor.predict(_df)
@@ -339,11 +369,11 @@ def dealing_with_improve_regressor(df):
 def dealing_with_scale_regressor(df):
   columns = ['Ativos', 'ANR', 'Falhas', 'Instalações', 'fiveStars', 'fourStars',
        'threeStars', 'twoStars', 'oneStar', 'total', 'score',
-       'Aquisição de Usuários', 'Nota Média', 'Desinstalações',
+       'Aquisição de Usuários', 'Nota Média',
   'Category_FINANCE','Category_FOODS_AND_DRINK','Category_MAPS_AND_NAVIGATION',	'Category_SHOPPING']
   _df = df[columns]
   #x_file = open(os.path.join("modelos/", "model_scale.pkl"), "rb")
-  regressor = load_model("modelos/model_scale")
+  regressor = load_model("modelos/model_scale_sem_desinstalacoes")
   predictions = predict_model(regressor,_df)
   return predictions['Label'].iloc[0].astype(int)
 mae = 0
@@ -381,9 +411,10 @@ elif ais == "Scale":
 
 if (ativos == 0 and anr == 0 and falhas == 0 and installs == 0 and fiveStars == 0 and fourStars == 0 and threeStars == 0 and twoStars == 0 
     and total == 0 and oneStar == 0 and score == 0.00 and aquisicao == 0 and nota == 0.00 and desinstalacoes ==0):
-        st.markdown("<h4 >" + "A posição na Categoria do seu App será <strong>" +  str(0)+"</strong>" + "</h4>", unsafe_allow_html=True)
+        st.markdown("<h4>" + "A posição na Categoria do seu App será <strong>" +  str(0)+"</strong>" + "</h4>", unsafe_allow_html=True)
 else:
-  st.markdown("<h4>" + "A posição na Categoria do seu App estará entre <strong>" + str(lower_bound) +" </strong> à " + "<strong>" +  str(upper_bound)+"</strong>" + "</h4>", unsafe_allow_html=True)
+  st.markdown("<h4>" + "A posição na Categoria do seu App estará entre <strong>" + str(int(lower_bound)) +" </strong> à " + "<strong>" +  str(int(upper_bound))+"</strong>" + "</h4>", unsafe_allow_html=True)
+
 st.markdown("<span> </span>", unsafe_allow_html=True)
 st.markdown("<span> </span>", unsafe_allow_html=True)
 st.markdown("<span> </span>", unsafe_allow_html=True)
